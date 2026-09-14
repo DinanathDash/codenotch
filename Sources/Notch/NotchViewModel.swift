@@ -181,6 +181,12 @@ final class NotchViewModel: ObservableObject {
     /// Mirrors the persisted Appearance choice so the separate notch window
     /// redraws immediately when Settings changes it.
     @Published var accentColor: AccentColorChoice = .system
+    
+    @Published var watchThreshold: Double = 0.50
+    @Published var criticalThreshold: Double = 0.70
+    @Published var watchColorHex: UInt32? = nil
+    @Published var criticalColorHex: UInt32? = nil
+    @Published var weeklyRingDashed: Bool = true
     /// Whether a provider's weekly limit gets a ring of its own, and where.
     /// Mirrored here for the same reason `accentColor` is: the notch is a
     /// separate window, and it has to redraw the moment Settings changes this.

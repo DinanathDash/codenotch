@@ -244,6 +244,38 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(notchSurfaceStyle.rawValue, forKey: Keys.notchSurfaceStyle) }
     }
 
+    @Published var watchThreshold: Double {
+        didSet { defaults.set(watchThreshold, forKey: Keys.watchThreshold) }
+    }
+
+    @Published var criticalThreshold: Double {
+        didSet { defaults.set(criticalThreshold, forKey: Keys.criticalThreshold) }
+    }
+    
+    @Published var weeklyRingDashed: Bool {
+        didSet { defaults.set(weeklyRingDashed, forKey: Keys.weeklyRingDashed) }
+    }
+
+    @Published var watchColorHex: UInt32? {
+        didSet {
+            if let hex = watchColorHex {
+                defaults.set(hex, forKey: Keys.watchColorHex)
+            } else {
+                defaults.removeObject(forKey: Keys.watchColorHex)
+            }
+        }
+    }
+
+    @Published var criticalColorHex: UInt32? {
+        didSet {
+            if let hex = criticalColorHex {
+                defaults.set(hex, forKey: Keys.criticalColorHex)
+            } else {
+                defaults.removeObject(forKey: Keys.criticalColorHex)
+            }
+        }
+    }
+
     /// The language the app itself speaks.
     ///
     /// `.system` follows the Mac. Written through `L10n.apply` so the store
@@ -433,6 +465,11 @@ final class Preferences: ObservableObject {
         static let deepSeekPricingEnabled = "deepSeekPricingEnabled"
         static let deepSeekPricingSchedule = "deepSeekPricingSchedule"
         static let showCodexExtraLimits = "showCodexExtraLimits"
+        static let watchThreshold = "watchThreshold"
+        static let criticalThreshold = "criticalThreshold"
+        static let watchColorHex = "watchColorHex"
+        static let criticalColorHex = "criticalColorHex"
+        static let weeklyRingDashed = "weeklyRingDashed"
     }
 
     /// The budget read straight from disk, off the main actor.
@@ -510,7 +547,7 @@ final class Preferences: ObservableObject {
     /// the notch's mode, the archived readings, all apparently lost. Copying
     /// the old domain across once is the difference between a rename and what
     /// looks like a reset.
-    private static let previousDomain = "com.vinz.usagenotch"
+    nonisolated private static let previousDomain = "com.vinz.usagenotch"
 
     static func migrateFromPreviousName(into defaults: UserDefaults = .standard,
                                         from domain: String = previousDomain) {
@@ -675,6 +712,14 @@ final class Preferences: ObservableObject {
             .flatMap(AccentColorChoice.init(rawValue:)) ?? .system
         self.notchSurfaceStyle = defaults.string(forKey: Keys.notchSurfaceStyle)
             .flatMap(NotchSurfaceStyle.init(rawValue:)) ?? .glass
+        
+        self.watchThreshold = defaults.object(forKey: Keys.watchThreshold) as? Double ?? 0.50
+        self.criticalThreshold = defaults.object(forKey: Keys.criticalThreshold) as? Double ?? 0.70
+        
+        self.weeklyRingDashed = defaults.object(forKey: Keys.weeklyRingDashed) as? Bool ?? true
+        self.watchColorHex = defaults.object(forKey: Keys.watchColorHex) as? UInt32
+        self.criticalColorHex = defaults.object(forKey: Keys.criticalColorHex) as? UInt32
+
         // Absent means never chosen, which is follow-the-Mac.
         self.language = defaults.string(forKey: L10n.languageDefaultsKey)
             .flatMap(AppLanguage.init(rawValue:)) ?? .system

@@ -33,16 +33,21 @@ struct ProviderRing: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.codenotchReduceTransparency) private var reduceTransparency
     @Environment(\.codenotchAccentColor) private var accentColor
+    @Environment(\.codenotchWatchThreshold) private var watchThreshold
+    @Environment(\.codenotchCriticalThreshold) private var criticalThreshold
+    @Environment(\.codenotchWatchColor) private var watchColor
+    @Environment(\.codenotchCriticalColor) private var criticalColor
+    @Environment(\.codenotchWeeklyRingDashed) private var weeklyRingDashed
     @State private var spin: Double = 0
 
     private var band: UsageBand {
-        isBlocked ? .exhausted : UsageBand.band(for: usedFraction ?? 0)
+        isBlocked ? .exhausted : UsageBand.band(for: usedFraction ?? 0, watchThreshold: watchThreshold, criticalThreshold: criticalThreshold)
     }
     private var sweep: CGFloat { CGFloat(min(max(usedFraction ?? 0, 0), 1)) }
     private var localSweep: CGFloat { CGFloat(min(max(localContextFraction ?? 1, 0), 1)) }
 
     private var weeklyBand: UsageBand {
-        isBlocked ? .exhausted : UsageBand.band(for: weeklyFraction ?? 0)
+        isBlocked ? .exhausted : UsageBand.band(for: weeklyFraction ?? 0, watchThreshold: watchThreshold, criticalThreshold: criticalThreshold)
     }
     private var weeklySweep: CGFloat { CGFloat(min(max(weeklyFraction ?? 0, 0), 1)) }
 
@@ -87,7 +92,7 @@ struct ProviderRing: View {
                         .inset(by: NotchLayout.trackStroke / 2)
                         .trim(from: 0, to: sweep)
                         .stroke(
-                            band.color(accent: accentColor),
+                            band.color(accent: accentColor, watchColor: watchColor, criticalColor: criticalColor),
                             style: StrokeStyle(lineWidth: NotchLayout.progressStroke, lineCap: .round)
                         )
                         // Refreshing spins the reading itself rather than
@@ -122,16 +127,18 @@ struct ProviderRing: View {
                     Circle()
                         .inset(by: inset)
                         .stroke(Palette.ringTrack,
-                                style: StrokeStyle(lineWidth: NotchLayout.weeklyRingStroke))
+                                style: StrokeStyle(lineWidth: NotchLayout.weeklyRingStroke,
+                                                   dash: weeklyRingDashed ? [NotchLayout.weeklyRingStroke * 2, NotchLayout.weeklyRingStroke * 2] : []))
                         .opacity(reduceTransparency ? 1 : 0.7)
 
                     Circle()
                         .inset(by: inset)
                         .trim(from: 0, to: weeklySweep)
                         .stroke(
-                            weeklyBand.color(accent: accentColor),
+                            weeklyBand.color(accent: accentColor, watchColor: watchColor, criticalColor: criticalColor),
                             style: StrokeStyle(lineWidth: NotchLayout.weeklyRingStroke,
-                                               lineCap: .round)
+                                               lineCap: .round,
+                                               dash: weeklyRingDashed ? [NotchLayout.weeklyRingStroke * 2, NotchLayout.weeklyRingStroke * 2] : [])
                         )
                         .opacity(reduceTransparency ? 1 : 0.8)
                         .rotationEffect(.degrees(-90))

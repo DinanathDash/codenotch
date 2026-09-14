@@ -130,6 +130,11 @@ struct NotchRootView: View {
         .animation(motion(NotchMotion.unfold), value: model.isExpanded)
         .tint(model.accentColor.color)
         .environment(\.codenotchAccentColor, model.accentColor.color)
+        .environment(\.codenotchWatchThreshold, model.watchThreshold)
+        .environment(\.codenotchCriticalThreshold, model.criticalThreshold)
+        .environment(\.codenotchWatchColor, model.watchColorHex.map { Color(hex: $0) })
+        .environment(\.codenotchCriticalColor, model.criticalColorHex.map { Color(hex: $0) })
+        .environment(\.codenotchWeeklyRingDashed, model.weeklyRingDashed)
         .environment(\.notchSurfaceStyle, model.surfaceStyle)
     }
 

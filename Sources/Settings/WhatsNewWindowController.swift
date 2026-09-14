@@ -54,6 +54,10 @@ final class WhatsNewWindowController {
             rootView: WhatsNewView(note: note) { [weak self] in self?.dismiss() }
                 .tint(preferences.accentColor.color)
                 .environment(\.codenotchAccentColor, preferences.accentColor.color)
+                .environment(\.codenotchWatchThreshold, preferences.watchThreshold)
+                .environment(\.codenotchCriticalThreshold, preferences.criticalThreshold)
+                .environment(\.codenotchWatchColor, preferences.watchColorHex.map { Color(hex: $0) })
+                .environment(\.codenotchCriticalColor, preferences.criticalColorHex.map { Color(hex: $0) })
         )
         window.center()
         window.isReleasedWhenClosed = false

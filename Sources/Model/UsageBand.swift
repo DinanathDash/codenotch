@@ -12,10 +12,10 @@ enum UsageBand: Equatable {
     case critical    // nearly out
     case exhausted   // limit hit, waiting for the reset
 
-    static func band(for usedFraction: Double) -> UsageBand {
+    static func band(for usedFraction: Double, watchThreshold: Double = 0.50, criticalThreshold: Double = 0.70) -> UsageBand {
         switch usedFraction {
-        case ..<0.50: return .ample
-        case ..<0.70: return .watch
+        case ..<watchThreshold: return .ample
+        case ..<criticalThreshold: return .watch
         case ..<1.00: return .critical
         default:      return .exhausted
         }
@@ -25,11 +25,58 @@ enum UsageBand: Equatable {
     /// warning bands stay fixed regardless of the chosen accent, since their
     /// whole job is to interrupt whatever else is on screen and a
     /// customisable warning colour could be tuned into invisibility.
-    func color(accent: Color = Palette.ample) -> Color {
+    func color(accent: Color = Palette.ample, watchColor: Color? = nil, criticalColor: Color? = nil) -> Color {
         switch self {
         case .ample:                 return accent
-        case .watch:                 return Palette.watch
-        case .critical, .exhausted:  return Palette.critical
+        case .watch:                 return watchColor ?? Palette.watch
+        case .critical, .exhausted:  return criticalColor ?? Palette.critical
         }
+    }
+}
+
+private struct CodenotchWatchThresholdKey: EnvironmentKey {
+    static let defaultValue: Double = 0.50
+}
+
+private struct CodenotchCriticalThresholdKey: EnvironmentKey {
+    static let defaultValue: Double = 0.70
+}
+
+private struct CodenotchWatchColorKey: EnvironmentKey {
+    static let defaultValue: Color? = nil
+}
+
+private struct CodenotchCriticalColorKey: EnvironmentKey {
+    static let defaultValue: Color? = nil
+}
+
+private struct CodenotchWeeklyRingDashedKey: EnvironmentKey {
+    static let defaultValue: Bool = true
+}
+
+extension EnvironmentValues {
+    var codenotchWatchThreshold: Double {
+        get { self[CodenotchWatchThresholdKey.self] }
+        set { self[CodenotchWatchThresholdKey.self] = newValue }
+    }
+
+    var codenotchCriticalThreshold: Double {
+        get { self[CodenotchCriticalThresholdKey.self] }
+        set { self[CodenotchCriticalThresholdKey.self] = newValue }
+    }
+
+    var codenotchWatchColor: Color? {
+        get { self[CodenotchWatchColorKey.self] }
+        set { self[CodenotchWatchColorKey.self] = newValue }
+    }
+
+    var codenotchCriticalColor: Color? {
+        get { self[CodenotchCriticalColorKey.self] }
+        set { self[CodenotchCriticalColorKey.self] = newValue }
+    }
+    
+    var codenotchWeeklyRingDashed: Bool {
+        get { self[CodenotchWeeklyRingDashedKey.self] }
+        set { self[CodenotchWeeklyRingDashedKey.self] = newValue }
     }
 }

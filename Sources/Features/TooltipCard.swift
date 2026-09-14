@@ -367,8 +367,12 @@ private struct LimitWindowRow: View {
     let resetTimeFormat: ResetTimeFormat
     let showsUsagePace: Bool
     @Environment(\.codenotchAccentColor) private var accentColor
+    @Environment(\.codenotchWatchThreshold) private var watchThreshold
+    @Environment(\.codenotchCriticalThreshold) private var criticalThreshold
+    @Environment(\.codenotchWatchColor) private var watchColor
+    @Environment(\.codenotchCriticalColor) private var criticalColor
 
-    private var band: UsageBand { UsageBand.band(for: window.usedFraction ?? 0) }
+    private var band: UsageBand { UsageBand.band(for: window.usedFraction ?? 0, watchThreshold: watchThreshold, criticalThreshold: criticalThreshold) }
     private var trackWidth: CGFloat { NotchLayout.cardWidth - 2 * NotchLayout.cardPadding - inset }
     private var fillWidth: CGFloat {
         let fraction = CGFloat(min(max(window.usedFraction ?? 0, 0), 1))
@@ -409,7 +413,7 @@ private struct LimitWindowRow: View {
                 if window.usedFraction != nil {
                     ZStack(alignment: .leading) {
                         Capsule().fill(Palette.barTrack)
-                        Capsule().fill(band.color(accent: accentColor)).frame(width: fillWidth)
+                        Capsule().fill(band.color(accent: accentColor, watchColor: watchColor, criticalColor: criticalColor)).frame(width: fillWidth)
                     }
                     .frame(width: trackWidth, height: NotchLayout.barHeight)
                     .padding(.top, NotchLayout.labelToBar)
@@ -431,6 +435,10 @@ private struct MoneyBreakdownView: View {
     let money: UsageMoneyBreakdown
     let fidelity: Fidelity
     @Environment(\.codenotchAccentColor) private var accentColor
+    @Environment(\.codenotchWatchThreshold) private var watchThreshold
+    @Environment(\.codenotchCriticalThreshold) private var criticalThreshold
+    @Environment(\.codenotchWatchColor) private var watchColor
+    @Environment(\.codenotchCriticalColor) private var criticalColor
 
     private var symbol: String {
         switch money.currency.uppercased() {
@@ -452,7 +460,7 @@ private struct MoneyBreakdownView: View {
             GeometryReader { proxy in
                 HStack(spacing: 0) {
                     Rectangle()
-                        .fill(UsageBand.band(for: money.spentFraction).color(accent: accentColor))
+                        .fill(UsageBand.band(for: money.spentFraction, watchThreshold: watchThreshold, criticalThreshold: criticalThreshold).color(accent: accentColor, watchColor: watchColor, criticalColor: criticalColor))
                         .frame(width: proxy.size.width * CGFloat(money.spentFraction))
                     Rectangle().fill(Palette.barTrack)
                 }

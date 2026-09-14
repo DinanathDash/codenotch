@@ -234,6 +234,11 @@ struct SettingsView: View {
         .id(preferences.language)
         .tint(preferences.accentColor.color)
         .environment(\.codenotchAccentColor, preferences.accentColor.color)
+        .environment(\.codenotchWatchThreshold, preferences.watchThreshold)
+        .environment(\.codenotchCriticalThreshold, preferences.criticalThreshold)
+        .environment(\.codenotchWatchColor, preferences.watchColorHex.map { Color(hex: $0) })
+        .environment(\.codenotchCriticalColor, preferences.criticalColorHex.map { Color(hex: $0) })
+        .environment(\.codenotchWeeklyRingDashed, preferences.weeklyRingDashed)
         // Fills the window rather than claiming a fixed size. Under
         // `fullSizeContentView` the content view is the whole frame — title
         // bar included — so a view sized to `SettingsView.height` left the
@@ -603,6 +608,12 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                    
+                Toggle(L10n.t("Use dashed style for weekly ring"), isOn: $preferences.weeklyRingDashed)
+                Text(L10n.t("Draws the weekly ring as a dashed line to distinguish it clearly from the session ring. Turn off to draw it as a solid line."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Toggle(L10n.t("Claude daily pace ring"), isOn: $preferences.claudeDailyPaceRing)
                 Text(L10n.t("Claude's main ring shows today's share of the weekly limit — a seventh a day, counted from the weekly reset — instead of the session. The session moves to the thin ring and the card; alerts follow the daily ring."))
@@ -769,6 +780,74 @@ struct SettingsView: View {
                 }
             }
 
+            Section(L10n.t("Usage Limits")) {
+                LabeledContent(L10n.t("Watch limit")) {
+                    HStack {
+                        Slider(value: $preferences.watchThreshold, in: 0...1, step: 0.05)
+                        Text("\(Int(preferences.watchThreshold * 100))%")
+                            .frame(width: 45, alignment: .trailing)
+                    }
+                }
+                LabeledContent(L10n.t("Critical limit")) {
+                    HStack {
+                        Slider(value: $preferences.criticalThreshold, in: 0...1, step: 0.05)
+                        Text("\(Int(preferences.criticalThreshold * 100))%")
+                            .frame(width: 45, alignment: .trailing)
+                    }
+                }
+                LabeledContent(L10n.t("Watch color")) {
+                    HStack(spacing: 2) {
+                        ColorSwatch(
+                            color: Palette.watch,
+                            title: L10n.t("Default"),
+                            isSelected: preferences.watchColorHex == nil
+                        ) {
+                            preferences.watchColorHex = nil
+                        }
+                        ForEach(AccentColorChoice.allCases.filter { $0 != .system }) { choice in
+                            ColorSwatch(
+                                color: choice.color,
+                                title: choice.title,
+                                isSelected: preferences.watchColorHex == choice.color.hex
+                            ) {
+                                preferences.watchColorHex = choice.color.hex
+                            }
+                        }
+                    }
+                }
+                
+                LabeledContent(L10n.t("Critical color")) {
+                    HStack(spacing: 2) {
+                        ColorSwatch(
+                            color: Palette.critical,
+                            title: L10n.t("Default"),
+                            isSelected: preferences.criticalColorHex == nil
+                        ) {
+                            preferences.criticalColorHex = nil
+                        }
+                        ForEach(AccentColorChoice.allCases.filter { $0 != .system }) { choice in
+                            ColorSwatch(
+                                color: choice.color,
+                                title: choice.title,
+                                isSelected: preferences.criticalColorHex == choice.color.hex
+                            ) {
+                                preferences.criticalColorHex = choice.color.hex
+                            }
+                        }
+                    }
+                }
+                HStack {
+                    Spacer()
+                    Button(L10n.t("Reset to defaults")) {
+                        preferences.watchThreshold = 0.50
+                        preferences.criticalThreshold = 0.70
+                        preferences.watchColorHex = nil
+                        preferences.criticalColorHex = nil
+                    }
+                    .buttonStyle(.link)
+                }
+            }
+
             // Apart from the notch's own group: these are about the app, not
             // the thing it draws on the screen edge.
             Section(L10n.t("App")) {
@@ -778,8 +857,9 @@ struct SettingsView: View {
                     // the 6pt of ring standing clear of the dot inside it.
                     HStack(spacing: 2) {
                         ForEach(AccentColorChoice.allCases) { choice in
-                            AccentColorSwatch(
-                                choice: choice,
+                            ColorSwatch(
+                                color: choice.color,
+                                title: choice.title,
                                 isSelected: preferences.accentColor == choice
                             ) {
                                 preferences.accentColor = choice
@@ -1213,8 +1293,9 @@ final class DragState {
 
 /// A compact macOS-style colour choice. The outer ring makes pale colours and
 /// the selected state visible against either appearance.
-private struct AccentColorSwatch: View {
-    let choice: AccentColorChoice
+private struct ColorSwatch: View {
+    let color: Color
+    let title: String
     let isSelected: Bool
     let select: () -> Void
 
@@ -1224,7 +1305,7 @@ private struct AccentColorSwatch: View {
         Button(action: select) {
             ZStack {
                 Circle()
-                    .fill(choice.color)
+                    .fill(color)
                     .frame(width: 16, height: 16)
                     .overlay {
                         Circle().strokeBorder(.primary.opacity(reduceTransparency ? 0.35 : 0.18), lineWidth: 1)
@@ -1243,8 +1324,8 @@ private struct AccentColorSwatch: View {
             .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .help(choice.title)
-        .accessibilityLabel(choice.title)
+        .help(title)
+        .accessibilityLabel(title)
         .accessibilityValue(isSelected ? L10n.t("Selected") : L10n.t("Not selected"))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }

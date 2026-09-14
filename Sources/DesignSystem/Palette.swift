@@ -58,6 +58,14 @@ extension Color {
             appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
         })
     }
+    
+    var hex: UInt32? {
+        guard let nsColor = NSColor(self).usingColorSpace(.sRGB) else { return nil }
+        let red = UInt32(max(0, min(1, nsColor.redComponent)) * 255.0)
+        let green = UInt32(max(0, min(1, nsColor.greenComponent)) * 255.0)
+        let blue = UInt32(max(0, min(1, nsColor.blueComponent)) * 255.0)
+        return (red << 16) | (green << 8) | blue
+    }
 }
 
 extension NSColor {

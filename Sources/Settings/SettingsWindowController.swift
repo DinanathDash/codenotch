@@ -83,6 +83,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
+        
+        window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
+        NSColorPanel.shared.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -177,6 +180,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window.title = L10n.t("Codenotch Settings")
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
+        window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         // A floating rounded panel rather than a square window. The rounded
         // shape is drawn by the content (see `SettingsView.body`), so the
         // window has to stop painting its own square one behind it — hence
