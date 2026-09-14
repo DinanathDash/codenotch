@@ -51,6 +51,11 @@ final class NotchFleet {
     private var displayPreference: DisplayPreference = .followActiveWindow
     private var resetTimeFormat: ResetTimeFormat = .automatic
     private var accentColor: AccentColorChoice = .system
+    private var watchThreshold: Double = 0.50
+    private var criticalThreshold: Double = 0.70
+    private var watchColorHex: UInt32? = nil
+    private var criticalColorHex: UInt32? = nil
+    private var weeklyRingDashed: Bool = true
     /// One choice for the whole fleet, like the edge and the size: a weekly
     /// ring on one display and not another would read as a bug.
     private var weeklyRing: WeeklyRing = .off
@@ -69,11 +74,15 @@ final class NotchFleet {
 
     /// Hooked up by the app delegate; driven by the notch's own chrome.
     var onRefresh: (() -> Void)?
-    var onToggleKeepOpen: (() -> Void)?
+
     var onRefreshProvider: ((String) async -> Void)?
     var onOpenSettings: (() -> Void)?
     var onFocusSession: ((pid_t) -> Void)?
-    var signInItems: [(title: String, action: () -> Void)] = []
+    var signInItems: [() -> (title: String, action: () -> Void)?] = [] {
+        didSet {
+            controllers.values.forEach { $0.signInItems = signInItems }
+        }
+    }
     /// An ⌥-drag on any one panel settled at a new offset. Persisting it is
     /// Preferences' job, same division `apply(edge:)` already keeps.
     var onReposition: ((CGFloat) -> Void)?
@@ -187,6 +196,41 @@ final class NotchFleet {
         self.accentColor = accentColor
         for controller in controllers.values {
             controller.model.accentColor = accentColor
+        }
+    }
+
+    func apply(watchThreshold: Double) {
+        self.watchThreshold = watchThreshold
+        for controller in controllers.values {
+            controller.model.watchThreshold = watchThreshold
+        }
+    }
+
+    func apply(criticalThreshold: Double) {
+        self.criticalThreshold = criticalThreshold
+        for controller in controllers.values {
+            controller.model.criticalThreshold = criticalThreshold
+        }
+    }
+
+    func apply(watchColorHex: UInt32?) {
+        self.watchColorHex = watchColorHex
+        for controller in controllers.values {
+            controller.model.watchColorHex = watchColorHex
+        }
+    }
+
+    func apply(criticalColorHex: UInt32?) {
+        self.criticalColorHex = criticalColorHex
+        for controller in controllers.values {
+            controller.model.criticalColorHex = criticalColorHex
+        }
+    }
+
+    func apply(weeklyRingDashed: Bool) {
+        self.weeklyRingDashed = weeklyRingDashed
+        for controller in controllers.values {
+            controller.model.weeklyRingDashed = weeklyRingDashed
         }
     }
 
@@ -400,6 +444,11 @@ final class NotchFleet {
         controller.model.sizeScale = scale
         controller.model.resetTimeFormat = resetTimeFormat
         controller.model.accentColor = accentColor
+        controller.model.watchThreshold = watchThreshold
+        controller.model.criticalThreshold = criticalThreshold
+        controller.model.watchColorHex = watchColorHex
+        controller.model.criticalColorHex = criticalColorHex
+        controller.model.weeklyRingDashed = weeklyRingDashed
         controller.model.weeklyRing = weeklyRing
         controller.model.showsMoveHandle = showsMoveHandle
         controller.model.surfaceStyle = surfaceStyle
@@ -412,7 +461,7 @@ final class NotchFleet {
         controller.model.onFocusSession = onFocusSession
         controller.onReposition = onReposition
         controller.onMoveToEdge = onMoveToEdge
-        controller.onToggleKeepOpen = onToggleKeepOpen
+
         controller.signInItems = signInItems
         controller.model.updateSnapshots(snapshots)
         controller.model.thinkingModels = thinkingModels

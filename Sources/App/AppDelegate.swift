@@ -117,10 +117,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let miniMaxWeb = WebSessionProvider(site: Sites.minimax(region: preferences.minimaxRegion))
             self.miniMaxWeb = miniMaxWeb
             let webProviders: [WebSessionProvider] = [deepSeek]
-            fleet.signInItems = [deepSeek, miniMaxWeb].map { provider in
+            fleet.signInItems = ([deepSeek, miniMaxWeb] as [WebSessionProvider]).map { provider in
                 let name = provider.displayName
-                return (title: L10n.t("Sign in to \(name)…"),
-                        action: { [weak provider] in provider?.presentSignIn() })
+                return { [weak provider, weak preferences] in
+                    guard let provider = provider, let prefs = preferences else { return nil }
+                    // Hide if toggled off in settings or already signed in
+                    if !prefs.connectedProviders.contains(provider.id) || provider.account() != nil { return nil }
+                    return (title: L10n.t("Sign in to \(name)…"),
+                            action: { provider.presentSignIn() })
+                }
             }
 
             // Cursor reads the editor's session, or cursor-agent's if the
@@ -475,10 +480,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 preferences?.setOffset(offset, for: preferences?.notchEdge ?? .right)
             }
             
-            fleet.onToggleKeepOpen = { [weak preferences] in
-                guard let prefs = preferences else { return }
-                prefs.notchVisibility = (prefs.notchVisibility == .alwaysShow) ? .onHover : .alwaysShow
-            }
 
             // Writing the preference is the whole of it: `notchEdge` is
             // `@Published` and the fleet already follows it, so the notch
@@ -495,6 +496,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             preferences.$accentColor
                 .receive(on: RunLoop.main)
                 .sink { [weak fleet] in fleet?.apply(accentColor: $0) }
+                .store(in: &cancellables)
+
+            preferences.$watchThreshold
+                .receive(on: RunLoop.main)
+                .sink { [weak fleet] in fleet?.apply(watchThreshold: $0) }
+                .store(in: &cancellables)
+
+            preferences.$criticalThreshold
+                .receive(on: RunLoop.main)
+                .sink { [weak fleet] in fleet?.apply(criticalThreshold: $0) }
+                .store(in: &cancellables)
+
+            preferences.$watchColorHex
+                .receive(on: RunLoop.main)
+                .sink { [weak fleet] in fleet?.apply(watchColorHex: $0) }
+                .store(in: &cancellables)
+
+            preferences.$criticalColorHex
+                .receive(on: RunLoop.main)
+                .sink { [weak fleet] in fleet?.apply(criticalColorHex: $0) }
+                .store(in: &cancellables)
+
+            preferences.$weeklyRingDashed
+                .receive(on: RunLoop.main)
+                .sink { [weak fleet] in fleet?.apply(weeklyRingDashed: $0) }
                 .store(in: &cancellables)
 
             preferences.$weeklyRing
@@ -753,6 +779,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fleet.apply(scale: preferences.notchScale)
         fleet.apply(resetTimeFormat: preferences.resetTimeFormat)
         fleet.apply(accentColor: preferences.accentColor)
+        fleet.apply(watchThreshold: preferences.watchThreshold)
+        fleet.apply(criticalThreshold: preferences.criticalThreshold)
+        fleet.apply(watchColorHex: preferences.watchColorHex)
+        fleet.apply(criticalColorHex: preferences.criticalColorHex)
         fleet.apply(weeklyRing: preferences.weeklyRing)
         fleet.apply(showsMoveHandle: preferences.showsMoveHandle)
         fleet.apply(foldsForFullScreen: preferences.foldsForFullScreen)

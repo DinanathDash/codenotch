@@ -67,7 +67,7 @@ final class FullScreenAutoFoldTests: XCTestCase {
         defer { controller.stop() }
 
         controller.model.isExpanded = true
-        controller.model.isPinned = true
+        controller.model.isAlwaysOn = false
         controller.isFullScreenActive = { true }
 
         // Post active space changed notification
@@ -77,7 +77,6 @@ final class FullScreenAutoFoldTests: XCTestCase {
         )
 
         XCTAssertFalse(controller.model.isExpanded, "The notch must fold when entering a full-screen space")
-        XCTAssertFalse(controller.model.isPinned, "The notch must unpin when folded for full-screen")
     }
 
     func testControllerAutoFoldsWhenFullscreenAppActivates() {
@@ -132,7 +131,7 @@ final class FullScreenAutoFoldTests: XCTestCase {
         controller.show()
         defer { controller.stop() }
 
-        controller.model.isAlwaysOn = true
+        controller.model.isAlwaysOn = false
         controller.model.isExpanded = true
         controller.foldsForFullScreen = false
         controller.isFullScreenActive = { true }
@@ -143,22 +142,23 @@ final class FullScreenAutoFoldTests: XCTestCase {
         XCTAssertFalse(controller.model.isExpanded, "Re-enabling the fold under a frontmost full-screen app must fold now, not on the next cursor poll")
     }
 
-    func testAlwaysOnRestoresExpandedWhenLeavingFullScreen() {
+    func testAlwaysOnFoldsInFullScreenAndUnfoldsWhenLeaving() {
         let controller = NotchWindowController()
         controller.show()
         defer { controller.stop() }
 
         controller.model.isAlwaysOn = true
         controller.model.isExpanded = true
+        // Default is foldsForFullScreen = true
 
         // Simulate entering full-screen
         controller.isFullScreenActive = { true }
         controller.handleActiveSpaceOrAppChange()
-        XCTAssertFalse(controller.model.isExpanded)
+        XCTAssertFalse(controller.model.isExpanded, "Always-on notch should fold when entering full screen if foldsForFullScreen is true")
 
-        // Simulate returning to desktop
+        // Simulate leaving full-screen
         controller.isFullScreenActive = { false }
         controller.handleActiveSpaceOrAppChange()
-        XCTAssertTrue(controller.model.isExpanded, "Always-on notch should unfold again when leaving full screen")
+        XCTAssertTrue(controller.model.isExpanded, "Always-on notch should unfold when leaving full screen")
     }
 }

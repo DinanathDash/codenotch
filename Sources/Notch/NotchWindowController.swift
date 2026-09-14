@@ -18,12 +18,12 @@ final class NotchWindowController {
 
     /// Hooked up by the app delegate; drives the menu's "Refresh now".
     var onRefresh: (() -> Void)?
-    /// One "Sign in to …" item per provider that needs a browser session.
-    var signInItems: [(title: String, action: () -> Void)] = []
+    /// One "Sign in to …" item per provider that needs a browser session, evaluated on demand.
+    var signInItems: [() -> (title: String, action: () -> Void)?] = []
     /// Driven by the notch's own chrome.
-    var onToggleKeepOpen: (() -> Void)?
     /// Refetch a single provider, asked for by clicking its ring.
     var onRefreshProvider: ((String) async -> Void)?
+    var onToggleKeepOpen: (() -> Void)?
     /// Open the settings window, asked for by clicking the handle.
     var onOpenSettings: (() -> Void)?
     /// An ⌥-drag on the pill settled at a new `model.alongOffset`. The
@@ -108,7 +108,9 @@ final class NotchWindowController {
                     return
                 }
             }
-            foldForFullScreen()
+            if !model.isPinned {
+                foldForFullScreen()
+            }
         } else if model.isAlwaysOn && !model.isExpanded {
             withAnimation(NotchMotion.unfold) {
                 model.isExpanded = true
@@ -122,7 +124,7 @@ final class NotchWindowController {
         if let peekUntil, peekUntil > Date() { return }
         foldWork?.cancel()
         foldWork = nil
-        model.isPinned = false
+        // Don't clear isPinned here, so a manual pin survives full-screen checks.
         guard model.isExpanded else { return }
         withAnimation(NotchMotion.unfold) {
             model.isExpanded = false
@@ -543,7 +545,7 @@ final class NotchWindowController {
         let overTooltip = model.hoveredIndex
             .flatMap(tooltipRect(index:))
             .map { model.isExpanded && $0.contains(local) } ?? false
-        setExpanded(liveRect.contains(local) || overTooltip, ignoreAlwaysOn: isFullScreenActive())
+        setExpanded(liveRect.contains(local) || overTooltip)
 
         var target: Int?
         if model.isExpanded, notchRect.contains(local) {
@@ -592,7 +594,7 @@ final class NotchWindowController {
 
     /// Opens on contact, folds shut after a pause — unless it has been pinned
     /// open, in which case the pointer is not what decides.
-    private func setExpanded(_ wanted: Bool, ignoreAlwaysOn: Bool = false) {
+    private func setExpanded(_ wanted: Bool) {
         if wanted {
             foldWork?.cancel()
             foldWork = nil
@@ -604,13 +606,15 @@ final class NotchWindowController {
         // A peek holds the notch open for its own duration; only after that
         // does the pointer get a say again.
         if let peekUntil, peekUntil > Date() { return }
-        let holdsOpen = ignoreAlwaysOn ? model.isPinned : model.staysOpen
+        // A pinned notch stays open everywhere. An always-on notch stays open
+        // on the desktop, but might fold under full-screen apps if the setting allows.
+        let holdsOpen = model.isPinned || (model.isAlwaysOn && !(foldsForFullScreen && isFullScreenActive()))
         guard model.isExpanded, !holdsOpen, foldWork == nil else { return }
         let work = DispatchWorkItem { [weak self] in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.foldWork = nil
-                let stillHoldsOpen = ignoreAlwaysOn ? self.model.isPinned : self.model.staysOpen
+                let stillHoldsOpen = self.model.isPinned || (self.model.isAlwaysOn && !(self.foldsForFullScreen && self.isFullScreenActive()))
                 guard !stillHoldsOpen else { return }
                 withAnimation(NotchMotion.unfold) {
                     self.model.isExpanded = false
@@ -1084,7 +1088,6 @@ final class NotchWindowController {
             withAnimation(NotchMotion.unfold) { model.isExpanded = true }
         }
         updateInteractiveRects()
-        onToggleKeepOpen?()
     }
 
     func cellIndex(along: CGFloat) -> Int? {
@@ -1115,8 +1118,8 @@ final class NotchWindowController {
         menu.autoenablesItems = false
         let keepOpen = NSMenuItem(
             title: L10n.t("Keep open"),
-            action: #selector(MenuActions.togglePinned(_:)),
-            keyEquivalent: model.isAlwaysOn ? "✓" : ""
+            action: #selector(MenuActions.toggleKeepOpen(_:)),
+            keyEquivalent: model.isPinned ? "✓" : ""
         )
         keepOpen.keyEquivalentModifierMask = []
         keepOpen.target = menuActions
@@ -1133,16 +1136,19 @@ final class NotchWindowController {
         refresh.isEnabled = true
         menu.addItem(refresh)
 
-        for (index, entry) in signInItems.enumerated() {
-            let item = NSMenuItem(
-                title: entry.title,
-                action: #selector(MenuActions.signIn(_:)),
-                keyEquivalent: ""
-            )
-            item.target = menuActions
-            item.tag = index
-            item.isEnabled = true
-            menu.addItem(item)
+        let activeSignInItems = signInItems.compactMap { $0() }
+        if !activeSignInItems.isEmpty {
+            menu.addItem(.separator())
+            for (index, item) in activeSignInItems.enumerated() {
+                let menuItem = NSMenuItem(
+                    title: item.title,
+                    action: #selector(MenuActions.signIn(_:)),
+                    keyEquivalent: ""
+                )
+                menuItem.tag = index
+                menuItem.target = menuActions
+                menu.addItem(menuItem)
+            }
         }
         menu.addItem(.separator())
         menu.addItem(
@@ -1155,8 +1161,11 @@ final class NotchWindowController {
 
     private lazy var menuActions = MenuActions(
         refresh: { [weak self] in self?.onRefresh?() },
-        signIn: { [weak self] index in self?.signInItems[safe: index]?.action() },
-        togglePinned: { [weak self] in self?.togglePinned() }
+        signIn: { [weak self] index in 
+            let active = self?.signInItems.compactMap { $0() }
+            active?[safe: index]?.action() 
+        },
+        toggleKeepOpen: { [weak self] in self?.model.isPinned.toggle() }
     )
 }
 
@@ -1166,20 +1175,20 @@ final class NotchWindowController {
 final class MenuActions: NSObject {
     private let refresh: () -> Void
     private let signIn: (Int) -> Void
-    private let pin: () -> Void
+    private let toggleKeepOpen: () -> Void
 
     init(
         refresh: @escaping () -> Void,
         signIn: @escaping (Int) -> Void,
-        togglePinned: @escaping () -> Void
+        toggleKeepOpen: @escaping () -> Void
     ) {
         self.refresh = refresh
         self.signIn = signIn
-        self.pin = togglePinned
+        self.toggleKeepOpen = toggleKeepOpen
     }
 
     @objc func refreshNow(_ sender: Any?) { refresh() }
-    @objc func togglePinned(_ sender: Any?) { pin() }
+    @objc func toggleKeepOpen(_ sender: Any?) { toggleKeepOpen() }
 
     @objc func signIn(_ sender: Any?) {
         guard let item = sender as? NSMenuItem else { return }
